@@ -1,0 +1,31 @@
+# Binaries for Go
+*.exe
+*.dll
+*.so
+*.a
+
+# Test Cache for Go
+*.test
+*.out
+
+# Go Module Cache
+/vendor
+
+# IDE-specific files and folders
+.idea/
+.vscode/
+
+# Operating System Specific Files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*~
+.#*
+
+# Build output
+/bin/
+/pkg/
+
+#tmp
+/tmp

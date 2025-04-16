@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bitsize-backend/config"
 	"fmt"
 	"log"
 	"net/http"
@@ -8,13 +9,15 @@ import (
 )
 
 func main() {
-	log.Print("bitsSize starting server...")
-	http.HandleFunc("/welcome", welcomeHanduler)
+	serverPort := config.AppConfig.GetPort()
+	// Set up HTTP handlers
+	http.HandleFunc("/welcome", welcomeHandler)
+	http.HandleFunc("/", helloHandler)
 
 	// Determine port for HTTP service.
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "3000"
+		port = serverPort
 		log.Printf("defaulting to port %s", port)
 	}
 
@@ -25,6 +28,10 @@ func main() {
 	}
 }
 
-func welcomeHanduler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "welcome our bits learn application")
+func welcomeHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "welcome to our bits learn application")
+}
+
+func helloHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "hello user , welcome to our app !")
 }
