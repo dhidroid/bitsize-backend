@@ -4,18 +4,21 @@
 *.so
 *.a
 
-# Test Cache for Go
+# Test cache and build output for Go
 *.test
 *.out
+*.log
 
-# Go Module Cache
-/vendor
+# Go workspace directories
+/bin/
+/pkg/
+/vendor/
 
-# IDE-specific files and folders
+# IDE/editor configs
 .idea/
 .vscode/
 
-# Operating System Specific Files
+# OS generated files
 .DS_Store
 Thumbs.db
 
@@ -23,12 +26,6 @@ Thumbs.db
 *~
 .#*
 
-# Build output
-/bin/
-/pkg/
-
-#tmp
-/tmp
-
-.env
-
+# Temp and environment
+/tmp/
+/.env
