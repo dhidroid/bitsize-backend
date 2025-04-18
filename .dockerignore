@@ -1,0 +1,7 @@
+
+# docker ignore
+vendor/
+*.log
+*.env
+node_modules/
+storage/
