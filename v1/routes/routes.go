@@ -2,6 +2,7 @@ package routes
 
 import (
 	"bitslearn/v1/controllers"
+	middlewares "bitslearn/v1/middleware"
 
 	"github.com/gin-gonic/gin"
 )
@@ -11,5 +12,7 @@ func RegisterRoutes(router *gin.Engine) {
 	{
 		api.POST("/auth/register", controllers.RegisterUser)
 		api.POST("/auth/login", controllers.LoginUser)
+
+		api.GET("/users", middlewares.AuthMiddleware(), controllers.GetAllUsers)
 	}
 }

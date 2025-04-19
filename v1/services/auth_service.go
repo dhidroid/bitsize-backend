@@ -1,42 +1,70 @@
 package services
 
 import (
-	"bitslearn/config"
 	"bitslearn/v1/models"
+	"bitslearn/v1/utils"
 	"context"
 	"errors"
-	"strings"
+	"time"
 
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 	"golang.org/x/crypto/bcrypt"
 )
 
-// reg user 
+var userCollection *mongo.Collection
+
+func InitUserService(db *mongo.Database) {
+	userCollection = db.Collection("users")
+}
+
+// Register user
 func RegisterWithEmail(user *models.User) (string, error) {
-	fsClient, _ := config.App.Firestore(context.Background())
-	defer fsClient.Close()
+	// Check if email already exists
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
-	authClient, _ := config.App.Auth(context.Background())
-
-	// Check if email exists
-	iter := fsClient.Collection("users").Where("email", "==", user.Email).Documents(context.Background())
-	if docs, _ := iter.GetAll(); len(docs) > 0 {
+	count, err := userCollection.CountDocuments(ctx, bson.M{"email": user.Email})
+	if err != nil {
+		return "", err
+	}
+	if count > 0 {
 		return "", errors.New("email already registered")
 	}
 
-	// Hash password
-	hashedPwd, _ := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
-	user.Password = string(hashedPwd)
-	user.Create = true
+	// 
 
-	// Create user in Firestore
-	docRef := fsClient.Collection("users").NewDoc()
-	user.UID = docRef.ID
-	if _, err := docRef.Set(context.Background(), user); err != nil {
+	// Check if username already exists
+	count, err = userCollection.CountDocuments(ctx, bson.M{"username": user.Username})
+	if err != nil {
+		return "", err
+	}
+	if count > 0 {
+		return "", errors.New("username already taken")
+	}
+
+	// default admin fasle
+	user.IsAdmin = false
+
+	// Hash password
+	hashedPwd, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+	user.Password = string(hashedPwd)
+
+	// Generate UID (use UUID in real app)
+	user.CreatedAt = time.Now().Format("2006-01-02 15:04:05")
+	user.UpdatedAt = time.Now().Format("2006-01-02 15:04:05")
+
+	// Insert into DB
+	_, err = userCollection.InsertOne(ctx, user)
+	if err != nil {
 		return "", err
 	}
 
-	// Create custom token
-	token, err := authClient.CustomToken(context.Background(), user.UID)
+	// Generate JWT
+	token, err := utils.GenerateJWT(user.UID)
 	if err != nil {
 		return "", err
 	}
@@ -44,90 +72,55 @@ func RegisterWithEmail(user *models.User) (string, error) {
 	return token, nil
 }
 
-
-
-// login user 
+// Login user
 func LoginWithEmail(email, password string) (string, *models.User, error) {
-	fsClient, _ := config.App.Firestore(context.Background())
-	defer fsClient.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
-	authClient, _ := config.App.Auth(context.Background())
-
-	// Find user by email
-	iter := fsClient.Collection("users").Where("email", "==", email).Documents(context.Background())
-	docs, _ := iter.GetAll()
-	if len(docs) == 0 {
+	var user models.User
+	err := userCollection.FindOne(ctx, bson.M{"email": email}).Decode(&user)
+	if err != nil {
 		return "", nil, errors.New("user not found")
 	}
 
-	var user models.User
-	_ = docs[0].DataTo(&user)
-
-	// Check password
-	err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
 	if err != nil {
 		return "", nil, errors.New("invalid credentials")
 	}
 
-	// Create token
-	token, err := authClient.CustomToken(context.Background(), user.UID)
+	token, err := utils.GenerateJWT(user.UID)
 	if err != nil {
 		return "", nil, err
 	}
 
+	user.Password = ""
 	return token, &user, nil
 }
 
+// get all users
+func GetAllUsers() ([]models.User, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 
-
-func VerifyAndStoreUser(idToken string) (*models.User, error) {
-	authClient, err := config.App.Auth(context.Background())
+	cursor, err := userCollection.Find(ctx, bson.M{})
 	if err != nil {
 		return nil, err
 	}
+	defer cursor.Close(ctx)
 
-	token, err := authClient.VerifyIDToken(context.Background(), idToken)
-	if err != nil {
-		return nil, err
-	}
-
-	uid := token.UID
-	userInfo, err := authClient.GetUser(context.Background(), uid)
-	if err != nil {
-		return nil, err
-	}
-
-	firestoreClient, err := config.App.Firestore(context.Background())
-	if err != nil {
-		return nil, err
-	}
-	defer firestoreClient.Close()
-
-	docRef := firestoreClient.Collection("users").Doc(uid)
-	doc, err := docRef.Get(context.Background())
-
-	var user models.User
-	if err != nil {
-		// New User
-		user = models.User{
-			UID:            uid,
-			Username:       strings.Split(userInfo.Email, "@")[0],
-			Name:           userInfo.DisplayName,
-			Email:          userInfo.Email,
-			ProfilePic:     userInfo.PhotoURL,
-			Create:         true,
-			AreaOfInterest: []string{},
-		}
-		_, err = docRef.Set(context.Background(), user)
-		if err != nil {
+	var users []models.User
+	for cursor.Next(ctx) {
+		var user models.User
+		if err := cursor.Decode(&user); err != nil {
 			return nil, err
 		}
-	} else {
-		err = doc.DataTo(&user)
-		if err != nil {
-			return nil, errors.New("error reading user data")
-		}
+		user.Password = "" // hide password
+		users = append(users, user)
 	}
 
-	return &user, nil
+	if err := cursor.Err(); err != nil {
+		return nil, err
+	}
+
+	return users, nil
 }

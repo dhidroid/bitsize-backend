@@ -20,7 +20,6 @@ func InitialDB() {
 	err := godotenv.Load()
 	if err != nil {
 		log.Println("Warning: Error loading .env file:", err)
-		// Continue execution, as env vars might be set through other means
 	}
 
 	// Get MongoDB URI from environment variable

@@ -3,6 +3,7 @@ package main
 import (
 	"bitslearn/config"
 	"bitslearn/v1/routes"
+	"bitslearn/v1/services"
 	"fmt"
 	"net/http"
 
@@ -12,10 +13,10 @@ import (
 func main() {
 	r := gin.Default()
 
-	// firebase init
-	// config.InitFirebase()
 	// database init
 	config.InitialDB()
+
+	services.InitUserService(config.DB)
 
 	// env load
 	config.LoadEnv()

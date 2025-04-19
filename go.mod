@@ -6,7 +6,10 @@ toolchain go1.23.8
 
 require github.com/gin-gonic/gin v1.10.0
 
-require google.golang.org/appengine v1.6.8 // indirect
+require (
+	github.com/golang-jwt/jwt/v5 v5.2.2 // indirect
+	google.golang.org/appengine v1.6.8 // indirect
+)
 
 require (
 	cel.dev/expr v0.16.1 // indirect

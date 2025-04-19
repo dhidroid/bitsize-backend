@@ -8,25 +8,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// func GoogleLogin(c *gin.Context) {
-// 	var requestBody struct {
-// 		IDToken string `json:"idToken"`
-// 	}
-
-// 	if err := c.ShouldBindJSON(&requestBody); err != nil {
-// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
-// 		return
-// 	}
-
-// 	user, err := services.VerifyAndStoreUser(requestBody.IDToken)
-// 	if err != nil {
-// 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-// 		return
-// 	}
-
-// 	c.JSON(http.StatusOK, user)
-// }
-
 func RegisterUser(c *gin.Context) {
 	var req models.User
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -35,6 +16,8 @@ func RegisterUser(c *gin.Context) {
 	}
 
 	token, err := services.RegisterWithEmail(&req)
+	req.IsCreatorMode = false
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -61,4 +44,14 @@ func LoginUser(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"token": token, "user": user})
+}
+
+func GetAllUsers(c *gin.Context) {
+	users, err := services.GetAllUsers()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch users"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"users": users})
 }
